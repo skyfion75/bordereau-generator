@@ -1,51 +1,76 @@
-# Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 import streamlit as st
-from streamlit.logger import get_logger
+import pandas as pd
+from docx import Document
+import os
+from docx.shared import Pt
+from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
+from docx.shared import RGBColor
 
-LOGGER = get_logger(__name__)
+st.title("Créateur de bordereau très cool")
 
+uploaded_files = st.file_uploader("Selectionner des fichiers pdfs", type=["pdf"], accept_multiple_files=True)
 
-def run():
-    st.set_page_config(
-        page_title="Hello",
-        page_icon="👋",
-    )
+st.divider()
 
-    st.write("# Welcome to Streamlit! 👋")
-
-    st.sidebar.success("Select a demo above.")
-
-    st.markdown(
-        """
-        Streamlit is an open-source app framework built specifically for
-        Machine Learning and Data Science projects.
-        **👈 Select a demo from the sidebar** to see some examples
-        of what Streamlit can do!
-        ### Want to learn more?
-        - Check out [streamlit.io](https://streamlit.io)
-        - Jump into our [documentation](https://docs.streamlit.io)
-        - Ask a question in our [community
-          forums](https://discuss.streamlit.io)
-        ### See more complex demos
-        - Use a neural net to [analyze the Udacity Self-driving Car Image
-          Dataset](https://github.com/streamlit/demo-self-driving)
-        - Explore a [New York City rideshare dataset](https://github.com/streamlit/demo-uber-nyc-pickups)
-    """
-    )
+df_list = []
 
 
-if __name__ == "__main__":
-    run()
+if uploaded_files:
+    st.write("Files téléchargés:")
+    for i, file in enumerate(uploaded_files):
+        pdf_name = os.path.basename(file.name)
+        pdf_name_cleaned = pdf_name.replace(".pdf", "").replace("_", " ")
+        df_list.append({"file_name": pdf_name_cleaned})
+    files_pd_dataframe = pd.DataFrame(df_list)
+    st.dataframe(files_pd_dataframe, use_container_width=True)
+    st.divider()
+    button_bordereau = st.button("Créer le bordereau", use_container_width=True)
+
+    if button_bordereau:
+        document = Document()
+        # Titre du document Word
+        section = document.sections[0]
+        header = section.header
+        paragraph = header.paragraphs[0]
+        run = paragraph.add_run("BORDEREAU DE PIÈCES")
+        font = run.font
+        font.name = 'Times New Roman'
+        font.size = Pt(12)
+        font.bold = True
+        font.color.rgb = RGBColor(0, 0, 0)  # Noir
+        paragraph.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+
+        for i, row in files_pd_dataframe.iterrows():
+            paragraph = document.add_paragraph()
+            run = paragraph.add_run()
+            font = run.font
+            font.name = 'Times New Roman'
+            font.size = Pt(12)
+            font.color.rgb = RGBColor(0, 0, 0)  # Black
+            words = row["file_name"].split(" ")
+
+            # Add the words to the paragraph with the first two in bold
+            for i, word in enumerate(words):
+                run = paragraph.add_run(word + ' ')
+                font = run.font
+                if i < 2:
+                    font.bold = True
+
+            # Add a new line between each line
+            paragraph.add_run().add_break()
+
+        bureau = os.path.join(os.path.expanduser("~"), "Desktop")
+
+        # Vérifier si le répertoire existe, sinon le créer
+        if not os.path.exists(bureau):
+            os.makedirs(bureau)
+
+        # Enregistrer le fichier Word sur le bureau
+        document.save(os.path.join(bureau, 'Bordereau.docx'))
+        st.success('Bordereau créé : Bordereau.docx sur le bureau')
+
+        st.success(f"Chemin complet du bureau :{os.path.join(bureau, 'Bordereau.docx')}")
+
+        document.save('Bordereau.docx')
+
+        st.balloons()
